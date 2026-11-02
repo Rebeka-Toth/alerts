@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Alerts admin</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1100px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; font-size: 14px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+  th { background: #f2f2f2; }
+  .failed { background: #fde8e8; }
+  .sent { background: #e8f7ea; }
+</style>
+</head>
+<body>
+<h1>Alerts admin</h1>
+<p>No authentication in this demo (known gap, see DECISIONS.md).</p>
+<div id="root">Loading...</div>
+<script>
+const TABLES = ["rules", "events", "deliveries", "users"];
+
+function cell(text) {
+  const td = document.createElement("td");
+  td.textContent = text === null ? "" : String(text); // textContent, never innerHTML: values are untrusted
+  return td;
+}
+
+async function retry(id) {
+  const r = await fetch(`/api/admin/deliveries/${id}/retry`, { method: "POST" });
+  if (!r.ok) alert("Retry refused: " + (await r.text()));
+  load();
+}
+
+async function load() {
+  const root = document.getElementById("root");
+  root.textContent = "";
+  for (const name of TABLES) {
+    const rows = await (await fetch(`/api/admin/${name}`)).json();
+    const h = document.createElement("h2");
+    h.textContent = `${name} (${rows.length})`;
+    root.appendChild(h);
+    if (!rows.length) continue;
+    const table = document.createElement("table");
+    const head = document.createElement("tr");
+    const cols = Object.keys(rows[0]);
+    cols.forEach(c => { const th = document.createElement("th"); th.textContent = c; head.appendChild(th); });
+    if (name === "deliveries") head.appendChild(document.createElement("th"));
+    table.appendChild(head);
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      if (name === "deliveries") tr.className = row.status;
+      cols.forEach(c => tr.appendChild(cell(row[c])));
+      if (name === "deliveries") {
+        const td = document.createElement("td");
+        if (row.status === "failed") {
+          const b = document.createElement("button");
+          b.textContent = "Retry";
+          b.onclick = () => retry(row.id);
+          td.appendChild(b);
+        }
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    root.appendChild(table);
+  }
+}
+load();
+</script>
+</body>
+</html>
